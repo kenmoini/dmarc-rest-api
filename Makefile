@@ -1,4 +1,4 @@
-# Main Makefile for dmarc-cat
+# Main Makefile for dmarc-rest-api
 #
 # Copyright 2018 © by Ollivier Robert
 #
