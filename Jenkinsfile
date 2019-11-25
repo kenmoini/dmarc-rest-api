@@ -1,7 +1,9 @@
 def version
 pipeline {
     agent {
-        label 'nodejs'
+        node {
+            label 'nodejs'
+        }
     }
     options {
         timeout(time: 45, unit: 'MINUTES') 
