@@ -1,3 +1,4 @@
+Copyright (c) 2019, Ken Moini
 Copyright (c) 2018, Ollivier Robert
 All rights reserved.
 

@@ -1,4 +1,4 @@
-module github.com/keltia/dmarc-cat
+module github.com/kenmoini/dmarc-rest-api
 
 require (
 	github.com/gorilla/mux v1.7.3
