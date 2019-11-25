@@ -195,15 +195,21 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		for _, file := range files {
 			if strings.Contains(file, ".xml") {
 				processorResults = fireDMARCProcessor(file, flag.Args())
+
+				os.Remove(file)
 			}
 		}
 
 	case ".xml":
 		fmt.Println("File is raw XML, proceeding...")
 		processorResults = fireDMARCProcessor(tempFile.Name(), flag.Args())
+
 	default:
 		fmt.Printf("Failed to open file type %s.\n", bundleFileExt)
 	}
+
+	os.Remove(tempFile.Name())
+
 	fmt.Fprintf(w, processorResults + "\n")
 	
 }
