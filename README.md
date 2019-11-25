@@ -26,11 +26,32 @@ Aside from the standard library, this uses the following:
     go get -u github.com/intel/tfortools
     go get -u github.com/keltia/archive
 
-## Usage
+## Usage - Single report via CLI
 
 SYNOPSIS
 ```
-$ ./dmarc-rest-api
+dmarc-rest-api [-hvD] [--rest-server] <zipfile|xmlfile>
+
+Example:
+
+$ dmarc-rest-api /tmp/yahoo.com\!keltia.net\!1518912000\!1518998399.xml
+
+Reporting by: Yahoo! Inc. — postmaster@dmarc.yahoo.com
+From 2018-02-18 01:00:00 +0100 CET to 2018-02-19 00:59:59 +0100 CET
+
+Domain: keltia.net
+Policy: p=none; dkim=r; spf=r
+
+Reports(1):
+IP            Count   From       RFrom      RDKIM   RSPF
+88.191.250.24 1       keltia.net keltia.net neutral pass
+```
+
+## Usage - As a REST API
+
+SYNOPSIS
+```
+$ ./dmarc-rest-api --rest-server
 ```
 
 This simple command will start the REST API Server listening on port 8080.
@@ -39,7 +60,7 @@ From there, simply make a REST API call with the POST verb, as a *form-data* typ
 
 ## Tests
 
-Getting close to 80% coverage.
+Getting close to 80% coverage.  Need to add tests for REST API
 
 ## License
 
