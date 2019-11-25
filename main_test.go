@@ -63,7 +63,6 @@ func TestSelectInput_Badfn(t *testing.T) {
 func TestMain_Noargs(t *testing.T) {
 	assert.Error(t, realmain([]string{}))
 }
-
 func TestMain_Noargs_Verbose(t *testing.T) {
 	fVerbose = true
 	assert.Error(t, realmain([]string{}))

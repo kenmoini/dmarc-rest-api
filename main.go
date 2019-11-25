@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ var (
 	fDebug    bool
 	fJobs     int
 	fNoResolv bool
+	fServer	  bool
 	fSort     string
 	fType     string
 	fVerbose  bool
@@ -43,6 +45,7 @@ func init() {
 	flag.BoolVar(&fDebug, "D", false, "Debug mode")
 	flag.BoolVar(&fNoResolv, "N", false, "Do not resolve IPs")
 	flag.IntVar(&fJobs, "j", runtime.NumCPU(), "Parallel jobs")
+	flag.BoolVar(&fServer, "rest-server", false, "Start REST API")
 	flag.StringVar(&fSort, "S", `"Count" "dsc"`, "Sort results")
 	flag.StringVar(&fType, "t", "", "File type for stdin mode")
 	flag.BoolVar(&fVerbose, "v", false, "Verbose mode")
@@ -55,7 +58,7 @@ func Version() {
 
 // Setup creates our context and check stuff
 func Setup(a []string) (*Context, error) {
-	// Exist early if -version
+	// Exit early if -version
 	if fVersion {
 		Version()
 		return nil, nil
@@ -65,14 +68,10 @@ func Setup(a []string) (*Context, error) {
 		fVerbose = true
 		debug("debug mode")
 	}
-
-	/*
-	//Since we're running this as a REST API, ignore this requirement
-	//TODO: Come back and add a CLI arg switch check for --rest-server
-	if len(a) < 1 {
-		return nil, fmt.Errorf("You must specify at least one file.")
+	
+	if ((len(a) < 1) && !fServer) {
+		return nil, fmt.Errorf("You must specify at least one file or start as a REST API Server.")
 	}
-	*/
 
 	ctx := &Context{RealResolver{}, fJobs}
 
@@ -115,6 +114,11 @@ func realmain(args []string) error {
 	ctx, err := Setup(args)
 	if ctx == nil {
 		return errors.Wrap(err, "realmain")
+	}
+
+	if fServer {
+		fmt.Println("Starting DMARC REST API...")
+		setupRoutes()
 	}
 
 	var txt string
@@ -269,7 +273,7 @@ func fireDMARCProcessor(thefilepath string, args []string) string {
 }
 
 func uploadFile(w http.ResponseWriter, r *http.Request) {
-    fmt.Println("File Upload Endpoint Hit\n")
+    fmt.Println("File Upload Endpoint Hit")
 
     // Parse our multipart form, 10 << 20 specifies a maximum
     // upload of 10 MB files.
@@ -279,7 +283,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
     // the Header and the size of the file
     file, handler, err := r.FormFile("bundleFile")
     if err != nil {
-        fmt.Println("Error Retrieving the File\n")
+        fmt.Println("Error Retrieving the File")
         fmt.Println(err)
     }
 	defer file.Close()
@@ -313,14 +317,14 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
     // write this byte array to our temporary file
     tempFile.Write(fileBytes)
     // return that we have successfully uploaded our file!
-	fmt.Println("Successfully Uploaded File\n")
+	fmt.Println("Successfully Uploaded File")
 
 	var processorResults string
 
 	// Determine file type
 	switch bundleFileExt {
 	case ".zip":
-		fmt.Println("File type is ZIP, extracting...\n")
+		fmt.Println("File type is ZIP, extracting...")
 		files, err := Unzip(tempFile.Name(), os.TempDir() + "/temp-bundles/extracts")
 		if err != nil {
 			fmt.Println(err)
@@ -336,7 +340,7 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case ".xml":
-		fmt.Println("File is raw XML, proceeding...\n")
+		fmt.Println("File is raw XML, proceeding...")
 		processorResults = fireDMARCProcessor(tempFile.Name(), flag.Args())
 	default:
 		fmt.Printf("Failed to open file type %s.\n", bundleFileExt)
@@ -351,15 +355,10 @@ func setupRoutes() {
 }
 
 func main() {
-    fmt.Println("Starting DMARC REST API...")
-    setupRoutes()
-	
 	// Parse CLI
-	// flag.Parse()
+	flag.Parse()
 
-	/*
 	if err := realmain(flag.Args()); err != nil {
 		log.Fatalf("Error: %v\n", err)
 	}
-	*/
 }

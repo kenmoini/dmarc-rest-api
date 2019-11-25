@@ -269,11 +269,14 @@ func AnalyzeJSON(ctx *Context, r Feedback) (string, error) {
 	}
 
 	// Generate our template
-	sortTmpl := fmt.Sprintf(rowTmplJSON, fSort)
+	sortTmpl := fmt.Sprintf(rowTmplJSON+"%s", fSort)
 	err = tfortools.OutputToTemplate(&buf, "reports", sortTmpl, newReportJSON[0], nil)
 	if err != nil {
 		return "", errors.Wrapf(err, "error in template 'reports'")
 	}
 
-	return strings.Split(buf.String(), "%!(EXTRA")[0], nil
+	formattedString := strings.Split(buf.String(), "%!(EXTRA")[0]
+	roundTwoFormattedString := strings.Split(formattedString, `"Count" "dsc"`)[0]
+	
+	return roundTwoFormattedString, nil
 }
