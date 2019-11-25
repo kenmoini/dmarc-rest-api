@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -24,6 +26,36 @@ Reports({{.Count}}):
 `
 
 	rowTmpl = `{{ table (sort . %s)}}`
+
+	reportTmplJSON = `{
+	"apiVersion": "v1",
+	"status": "success",
+	"processorMeta": {
+		"applicationName": "{{.MyName}}",
+		"jobs": "{{.Jobs}}",
+		"processorVersion": "{{.MyVersion}}"
+	},
+	"reportCount": "{{.Count}}",
+	"reports": [
+		{
+			"reportingOrg": "{{.Org}}",
+			"reportingEmail": "{{.Email}}",
+			"reportStartDate": "{{.DateBegin}}",
+			"reportEndDate": "{{.DateEnd}}",
+			"reportedDomain": "{{.Domain}}",
+			"reportedPolicy": {
+				"disposition": "{{.Disposition}}",
+				"dkim": "{{.DKIM}}",
+				"spf": "{{.SPF}}"
+			},
+
+			"entries":
+			`
+
+	rowTmplJSON = `{{.}}
+		}
+	]
+}`
 )
 
 // My template vars
@@ -191,4 +223,57 @@ func Analyze(ctx *Context, r Feedback) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+
+// Analyze extract and display what we want
+func AnalyzeJSON(ctx *Context, r Feedback) (string, error) {
+	var buf bytes.Buffer
+
+	tmplvars := &headVars{
+		MyName:      MyName,
+		MyVersion:   MyVersion,
+		Jobs:        fmt.Sprintf("%d", fJobs),
+		Author:      Author,
+		Org:         r.Metadata.OrgName,
+		Email:       r.Metadata.Email,
+		DateBegin:   time.Unix(r.Metadata.Date.Begin, 0).String(),
+		DateEnd:     time.Unix(r.Metadata.Date.End, 0).String(),
+		Domain:      r.Policy.Domain,
+		Disposition: r.Policy.P,
+		DKIM:        r.Policy.ADKIM,
+		SPF:         r.Policy.ASPF,
+		Pct:         r.Policy.Pct,
+		Count:       len(r.Records),
+	}
+
+	rows := GatherRows(ctx, r)
+	if len(rows) == 0 {
+		return "", fmt.Errorf("empty report")
+	}	
+
+	pagesJson, perr := json.MarshalIndent(rows, "\t\t\t", "\t")
+    if perr != nil {
+        fmt.Println("Cannot encode to JSON")
+    }
+	
+	newReportJSON := strings.Split(string(pagesJson), "%!(EXTRA")
+
+	//fmt.Println(newReportJSON[0])
+
+	// Header
+	t := template.Must(template.New("r").Parse(string(reportTmplJSON)))
+	err := t.ExecuteTemplate(&buf, "r", tmplvars)
+	if err != nil {
+		return "", errors.Wrapf(err, "error in template 'r'")
+	}
+
+	// Generate our template
+	sortTmpl := fmt.Sprintf(rowTmplJSON, fSort)
+	err = tfortools.OutputToTemplate(&buf, "reports", sortTmpl, newReportJSON[0], nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "error in template 'reports'")
+	}
+
+	return strings.Split(buf.String(), "%!(EXTRA")[0], nil
 }

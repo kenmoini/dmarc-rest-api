@@ -99,3 +99,43 @@ func HandleSingleFile(ctx *Context, r io.ReadCloser, typ int) (string, error) {
 
 	return Analyze(ctx, report)
 }
+
+// HandleSingleFile creates a tempdir and dispatch csv/zip files to handler.
+func HandleSingleFileJSON(ctx *Context, r io.ReadCloser, typ int) (string, error) {
+	debug("HandleSingleFile")
+
+	var body []byte
+
+	debug("typ=%d", typ)
+	if typ == archive.ArchiveZip {
+		return "", errors.New("unsupported")
+	}
+
+	a, err := archive.NewFromReader(r, typ)
+	if err == nil {
+
+		debug("a=%#v", a)
+		body, err = a.Extract("")
+		if err != nil {
+			return "", errors.Wrap(err, "extract")
+		}
+	} else {
+		// Got plain text (i.e. xml)
+		buf := bytes.NewBuffer(body)
+		_, err := io.Copy(buf, r)
+		if err != nil {
+			return "", errors.Wrap(err, "copy")
+		}
+	}
+	debug("xml=%#v", body)
+
+	var report Feedback
+
+	if err := xml.Unmarshal(body, &report); err != nil {
+		return "", errors.Wrap(err, "unmarshall")
+	}
+
+	debug("report=%v\n", report)
+
+	return AnalyzeJSON(ctx, report)
+}
