@@ -1,9 +1,9 @@
 FROM golang:alpine
 
-RUN mkdir -p /opt/dmarc-rest-api
-
-WORKDIR /opt/dmarc-rest-api
+RUN apk add --update --no-cache git curl wget build-base gpgme-dev
 
 RUN go get github.com/kenmoini/dmarc-rest-api
 
-CMD ["./dmarc-rest-api" "-rest-server"]
+EXPOSE 8080
+
+CMD ["/go/bin/dmarc-rest-api", "-rest-server"]
