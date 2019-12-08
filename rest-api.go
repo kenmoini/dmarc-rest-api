@@ -214,7 +214,13 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 	
 }
 
+func healthz(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Health endpoint hit")
+	fmt.Fprintf(w, "ok")
+}
+
 func setupRoutes() {
-    http.HandleFunc("/api/v1/upload_bundle", uploadFile)
+	http.HandleFunc("/api/v1/upload_bundle", uploadFile)
+	http.HandleFunc("/healthz", healthz)
     http.ListenAndServe(":8080", nil)
 }
