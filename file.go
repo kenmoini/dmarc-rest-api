@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	reFileName = `^([\w\.]+)!([\w\.]+)!([\d]+)!([\d]+)(\.xml)*(\.(gz|zip))*$`
+	reFileName = `^([\w\.]+)!([\w\.]+)!([\d]+)!([\d]+)*(\.(gz|zip|xml))*$`
 )
 
 var reFN *regexp.Regexp

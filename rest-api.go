@@ -1,7 +1,9 @@
 package main
 
 import (
+	"archive/tar"
 	"archive/zip"
+	"compress/gzip"
 	"flag"
 	"fmt"
 	"io"
@@ -81,6 +83,79 @@ func Unzip(src string, dest string) ([]string, error) {
     return filenames, nil
 }
 
+// Untar takes a destination path and a reader; a tar reader loops over the tarfile
+// creating the file structure at 'dst' along the way, and writing any files
+func Untar(dst string, r io.Reader) ([]string, error) {
+
+    var filenames []string
+
+	gzr, err := gzip.NewReader(r)
+	if err != nil {
+		return filenames, err
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+
+	for {
+		header, err := tr.Next()
+
+		switch {
+
+		// if no more files are found return
+		case err == io.EOF:
+			return filenames, nil
+
+		// return any other error
+		case err != nil:
+			return filenames, err
+
+		// if the header is nil, just skip it (not sure how this happens)
+		case header == nil:
+			continue
+		}
+
+		// the target location where the dir/file should be created
+		target := filepath.Join(dst, header.Name)
+
+        filenames = append(filenames, target)
+
+		// the following switch could also be done using fi.Mode(), not sure if there
+		// a benefit of using one vs. the other.
+		// fi := header.FileInfo()
+
+		// check the file type
+		switch header.Typeflag {
+
+		// if its a dir and it doesn't exist create it
+		case tar.TypeDir:
+			if _, err := os.Stat(target); err != nil {
+				if err := os.MkdirAll(target, 0755); err != nil {
+					return filenames, err
+				}
+			}
+
+		// if it's a file create it
+		case tar.TypeReg:
+			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+			if err != nil {
+				return filenames, err
+			}
+
+			// copy over contents
+			if _, err := io.Copy(f, tr); err != nil {
+				return filenames, err
+			}
+			
+			// manually close here after each file operation; defering would cause each file close
+			// to wait until all operations have completed.
+			f.Close()
+		}
+	}
+
+	return filenames, nil
+}
+
 func fireDMARCProcessor(thefilepath string, args []string) string {
 	//Check to make sure this is an XML file...
 
@@ -103,11 +178,13 @@ func fireDMARCProcessor(thefilepath string, args []string) string {
 
 			txt, err = HandleZipFile(ctx, file)
 			if err != nil {
+				fmt.Println("txt")
 				fmt.Println(err)
 			}
 		} else {
 			in, err := SelectInput(file)
 			if err != nil {
+				fmt.Println("in")
 				fmt.Println(err)
 			}
 			defer in.Close()
@@ -116,6 +193,7 @@ func fireDMARCProcessor(thefilepath string, args []string) string {
 
 			txt, err = HandleSingleFileJSON(ctx, in, typ)
 			if err != nil {
+				fmt.Println("handle")
 				fmt.Println(err)
 			}
 		}
@@ -182,30 +260,64 @@ func uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	// Determine file type
 	switch bundleFileExt {
-	case ".zip":
-		fmt.Println("File type is ZIP, extracting...")
-		files, err := Unzip(tempFile.Name(), os.TempDir() + "/temp-bundles/extracts")
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		fmt.Println("Unzipped:\n" + strings.Join(files, "\n"))
-
-		//For every XML file, run the processor...
-		for _, file := range files {
-			if strings.Contains(file, ".xml") {
-				processorResults = fireDMARCProcessor(file, flag.Args())
-
-				os.Remove(file)
+		case ".zip":
+			fmt.Println("File type is ZIP, extracting...")
+			files, err := Unzip(tempFile.Name(), os.TempDir() + "/temp-bundles/extracts")
+			if err != nil {
+				fmt.Println(err)
 			}
-		}
 
-	case ".xml":
-		fmt.Println("File is raw XML, proceeding...")
-		processorResults = fireDMARCProcessor(tempFile.Name(), flag.Args())
+			fmt.Println("Unzipped:\n" + strings.Join(files, "\n"))
 
-	default:
-		fmt.Printf("Failed to open file type %s.\n", bundleFileExt)
+			//For every XML file, run the processor...
+			for _, file := range files {
+				if strings.Contains(file, ".xml") {
+					processorResults = fireDMARCProcessor(file, flag.Args())
+
+					os.Remove(file)
+				}
+			}
+
+		case ".gz":
+			fmt.Println("File type is Gunzip, extracting " + tempFile.Name() + "...")
+			fileReader, err := os.Open(tempFile.Name())
+			if err != nil {
+				fmt.Println(err)
+			}
+			defer fileReader.Close()
+
+			fz, err := gzip.NewReader(fileReader)
+			if err != nil {
+				fmt.Println(err)
+			}
+			defer fz.Close()
+
+			s, err := ioutil.ReadAll(fz)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			reformattedFilename := strings.Replace(bundlefileName, "." + bundleFileExt, "", -1)
+			reformattedFullPath := os.TempDir() + "/temp-bundles/" + reformattedFilename
+
+			ferr := ioutil.WriteFile(reformattedFullPath, s, 0644)
+			if ferr != nil {
+				fmt.Println(ferr)
+			}
+
+			fmt.Println("File is gz XML, processing...")
+			fmt.Println("Sending file " + reformattedFullPath)
+			processorResults = fireDMARCProcessor(reformattedFullPath, flag.Args())
+
+			os.Remove(reformattedFullPath)
+
+
+		case ".xml":
+			fmt.Println("File is raw XML, proceeding...")
+			processorResults = fireDMARCProcessor(tempFile.Name(), flag.Args())
+
+		default:
+			fmt.Printf("Failed to open file type %s.\n", bundleFileExt)
 	}
 
 	os.Remove(tempFile.Name())

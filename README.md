@@ -54,7 +54,10 @@ SYNOPSIS
 $ ./dmarc-rest-api --rest-server
 ```
 
-This simple command will start the REST API Server listening on port 8080.
+This simple command will start the REST API Server listening on port 8080.  These are the following exposed endpoints:
+
+- /api/v1/upload_bundle - The API endpoint accepting bundleFile input
+- /healthz - A simple 200 OK Health Check for Kubernetes/OpenShift
 
 From there, simply make a REST API call with the POST verb, as a *form-data* type submission, and with the DMARC bundle file passed via the body in a bundleFile input.
 
