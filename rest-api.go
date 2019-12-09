@@ -25,6 +25,16 @@ func CreateDirIfNotExist(dir string) {
 	}
 }
 
+func handler(w http.ResponseWriter, req *http.Request) {
+    // ...
+	enableCors(&w)
+    // ...
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+}
+
 // Unzip will decompress a zip archive, moving all files and folders
 // within the zip file (parameter 1) to an output directory (parameter 2).
 func Unzip(src string, dest string) ([]string, error) {
