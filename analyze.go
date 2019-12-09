@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"text/template"
@@ -20,6 +21,7 @@ Reporting by: {{.Org}} — {{.Email}}
 From {{.DateBegin}} to {{.DateEnd}}
 
 Domain: {{.Domain}}
+Domain RUA Email: {{.DomainRUA}}
 Policy: p={{.Disposition}}; dkim={{.DKIM}}; spf={{.SPF}}
 
 Reports({{.Count}}):
@@ -43,6 +45,7 @@ Reports({{.Count}}):
 			"reportStartDate": "{{.DateBegin}}",
 			"reportEndDate": "{{.DateEnd}}",
 			"reportedDomain": "{{.Domain}}",
+			"reportedDomainRUA": "{{.DomainRUA}}",
 			"reportedPolicy": {
 				"disposition": "{{.Disposition}}",
 				"dkim": "{{.DKIM}}",
@@ -69,6 +72,7 @@ type headVars struct {
 	DateBegin   string
 	DateEnd     string
 	Domain      string
+	DomainRUA   string
 	Disposition string
 	DKIM        string
 	SPF         string
@@ -89,6 +93,29 @@ type Entry struct {
 type IP struct {
 	IP   string
 	Name string
+}
+
+func getDomainRUA(domain string) (string) {
+	fmt.Println("Pulling live DMARC record for domain " + domain)
+
+	txtrecords, _ := net.LookupTXT("_dmarc." + domain)
+
+	var record string
+
+	for _, txt := range txtrecords {
+		fmt.Println("Pulled live DMARC record: " + txt)
+		record = txt
+	}
+
+	s := strings.Split(record, "; ")
+
+	r := s[len(s)-1]
+
+	ns := strings.Replace(r, "rua=mailto:", "", -1)
+
+	fmt.Println("Processed live DMARC RUA Email: " + ns)
+
+	return ns
 }
 
 func ParallelSolve(ctx *Context, iplist []IP) []IP {
@@ -196,6 +223,7 @@ func Analyze(ctx *Context, r Feedback) (string, error) {
 		DateBegin:   time.Unix(r.Metadata.Date.Begin, 0).String(),
 		DateEnd:     time.Unix(r.Metadata.Date.End, 0).String(),
 		Domain:      r.Policy.Domain,
+		DomainRUA:   getDomainRUA(r.Policy.Domain),
 		Disposition: r.Policy.P,
 		DKIM:        r.Policy.ADKIM,
 		SPF:         r.Policy.ASPF,
@@ -240,6 +268,7 @@ func AnalyzeJSON(ctx *Context, r Feedback) (string, error) {
 		DateBegin:   time.Unix(r.Metadata.Date.Begin, 0).String(),
 		DateEnd:     time.Unix(r.Metadata.Date.End, 0).String(),
 		Domain:      r.Policy.Domain,
+		DomainRUA:   getDomainRUA(r.Policy.Domain),
 		Disposition: r.Policy.P,
 		DKIM:        r.Policy.ADKIM,
 		SPF:         r.Policy.ASPF,
