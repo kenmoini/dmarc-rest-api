@@ -25,12 +25,6 @@ func CreateDirIfNotExist(dir string) {
 	}
 }
 
-func handler(w http.ResponseWriter, req *http.Request) {
-    // ...
-	enableCors(&w)
-    // ...
-}
-
 func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
@@ -220,6 +214,9 @@ func fireDMARCProcessor(thefilepath string, args []string) string {
 }
 
 func uploadFile(w http.ResponseWriter, r *http.Request) {
+
+	enableCors(&w)
+
     fmt.Println("File Upload Endpoint Hit")
 
     // Parse our multipart form, 10 << 20 specifies a maximum
